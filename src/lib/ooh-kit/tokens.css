@@ -1,0 +1,23 @@
+/*
+ * OOH Kit Design System Tokens
+ * Project-specific layer on top of Unity Design System
+ * Source: Figma OOH Kit DS Library
+ */
+
+@theme {
+  /* OOH Kit Base */
+  --color-ooh-base-background: #ffffff;
+  --color-ooh-base-foreground: #202020;
+  --color-ooh-base-muted: #f0f0f0;
+  --color-ooh-base-border: #d9d9d9;
+
+  /* OOH Kit Spacing */
+  --spacing-ooh-1: 4px;
+  --spacing-ooh-2: 8px;
+  --spacing-ooh-3: 12px;
+  --spacing-ooh-4: 16px;
+  --spacing-ooh-32: 128px;
+
+  /* OOH Kit Typography */
+  --font-ooh: 'Newson GLS DTP', var(--font-sans);
+}
