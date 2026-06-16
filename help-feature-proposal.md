@@ -20,5 +20,6 @@ I went through the last few months of #ooh-ops tickets and pulled the most commo
 • Locker offline or not on platform
 
 *Status*
-• Live on localhost, all pages covered
+• Live on localhost + deployed to Vercel, all pages covered
+• Code pushed to GitHub: github.com/lillywallawitsch/locker-portal
 • Next step: connect to a backend that reads our docs and creates Jira tickets automatically
