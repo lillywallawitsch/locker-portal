@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { Package, Users } from 'lucide-react'
+import { Package, Users, MessageCircle, Send, X } from 'lucide-react'
 import {
   VerticalNav,
   NavBreadcrumb,
@@ -23,6 +23,7 @@ import AddLockerSidepanel from './components/AddLockerSidepanel'
 import type { AddLockerFormValues } from './components/AddLockerSidepanel'
 import { Plus, RefreshCw } from 'lucide-react'
 import { Button, Toast } from './lib/unity'
+import { Sidepanel } from './lib/ooh-kit'
 import type { Locker } from './data/lockers'
 import { getLockerDataForCarrier } from './data/lockers'
 import { getParcelDataForCarrier } from './data/parcels'
@@ -95,6 +96,38 @@ function App() {
   const [lockerDataByCarrier, setLockerDataByCarrier] = useState<Record<string, Locker[]>>({})
   const [addLockerOpen, setAddLockerOpen] = useState(false)
   const [addLockerToast, setAddLockerToast] = useState<Locker | null>(null)
+
+  // Help chat state (shared across overview pages)
+  type HelpMessage = { role: 'bot' | 'user'; text: string }
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [helpMessages, setHelpMessages] = useState<HelpMessage[]>([
+    { role: 'bot', text: 'Hi! I\'m here to help with locker and parcel issues. I can guide you, answer questions, or create a support ticket for you. What\'s going on?' },
+  ])
+  const [helpInput, setHelpInput] = useState('')
+  const [helpSuggestionsDismissed, setHelpSuggestionsDismissed] = useState(false)
+  const helpEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    helpEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [helpMessages])
+
+  const sendHelpMessage = (text: string) => {
+    if (!text.trim()) return
+    setHelpSuggestionsDismissed(true)
+    setHelpMessages(prev => [...prev, { role: 'user', text }])
+    setHelpInput('')
+    const replies: Record<string, string> = {
+      'A parcel is stuck or a compartment won\'t open': 'I\'ll create a carrier issue ticket for this. Please share the parcel ID and locker ID so I can include them in the report.',
+      'Cancel a booking': 'Sure. Share the parcel ID and I\'ll raise a cancellation request right away.',
+      'Locker data is wrong on the platform': 'This could be a wrong address, duplicate ID, or incorrect availability. Tell me what\'s wrong and which locker is affected.',
+      'Pickup code not working': 'I\'ll look into this. Please share the parcel ID and the locker ID where the code was rejected.',
+      'Request a change or new feature': 'Happy to pass that on. Describe what you\'d like and I\'ll put together a change or product request for you.',
+    }
+    const reply = replies[text] ?? "Thanks — I'll help you with that. Can you give me the locker ID or parcel ID so I can look into it?"
+    setTimeout(() => {
+      setHelpMessages(prev => [...prev, { role: 'bot', text: reply }])
+    }, 600)
+  }
 
   const activeCarrier = carriers.find(c => c.id === activeCarrierId) ?? carriers[0]
 
@@ -477,7 +510,7 @@ function App() {
         <Route
           path="/lockers"
           element={
-            <main className="flex-1 overflow-auto">
+            <main className="flex-1 overflow-auto relative">
               <div className="px-[18px] pt-[21px]">
                 <NavBreadcrumb items={[{ label: 'Locker Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
               </div>
@@ -508,6 +541,17 @@ function App() {
                   )}
                 </div>
               </div>
+              {/* Help FAB */}
+              <div className="fixed bottom-6 right-6 z-40">
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<MessageCircle size={16} />}
+                  onClick={() => setHelpOpen(true)}
+                >
+                  Help
+                </Button>
+              </div>
             </main>
           }
         />
@@ -522,7 +566,7 @@ function App() {
         <Route
           path="/parcels"
           element={
-            <main className="flex-1 overflow-auto">
+            <main className="flex-1 overflow-auto relative">
               <div className="px-[18px] pt-[21px]">
                 <NavBreadcrumb items={[{ label: 'Parcel Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
               </div>
@@ -537,6 +581,17 @@ function App() {
                     }
                   />
                 </div>
+              </div>
+              {/* Help FAB */}
+              <div className="fixed bottom-6 right-6 z-40">
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<MessageCircle size={16} />}
+                  onClick={() => setHelpOpen(true)}
+                >
+                  Help
+                </Button>
               </div>
             </main>
           }
@@ -587,6 +642,73 @@ function App() {
         onClose={() => setAddLockerOpen(false)}
         onAdd={handleAddLocker}
       />
+
+      {/* Help panel */}
+      <Sidepanel open={helpOpen} onClose={() => setHelpOpen(false)} backdrop="dim">
+        {/* Header */}
+        <div className="flex flex-col gap-1 border-b border-border-default px-6 pt-8 pb-6">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold leading-8 tracking-[-0.48px] text-text-foreground m-0">
+              Help
+            </h2>
+            <Button iconOnly aria-label="Close" icon={<X size={15} className="text-text-foreground" />} onClick={() => setHelpOpen(false)} />
+          </div>
+          <p className="text-base text-text-light leading-6 tracking-[-0.16px] m-0">
+            Ask a question, report an issue or request a new feature
+          </p>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-3">
+          {helpMessages.map((msg, i) => (
+            <div
+              key={i}
+              className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
+                msg.role === 'bot'
+                  ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
+                  : 'bg-surface-primary text-white self-end rounded-tr-sm'
+              }`}
+            >
+              {msg.text}
+            </div>
+          ))}
+
+          {/* Suggestions */}
+          {!helpSuggestionsDismissed && (
+            <div className="flex flex-col gap-2 mt-1">
+              {['A parcel is stuck or a compartment won\'t open', 'Cancel a booking', 'Locker data is wrong on the platform', 'Pickup code not working', 'Request a change or new feature'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendHelpMessage(s)}
+                  className="text-left text-sm text-text-foreground border border-border-default rounded-lg px-3.5 py-2.5 bg-surface-card hover:bg-surface-secondary transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+          <div ref={helpEndRef} />
+        </div>
+
+        {/* Input footer */}
+        <div className="flex items-center gap-2 border-t border-border-default p-4">
+          <input
+            type="text"
+            value={helpInput}
+            onChange={e => setHelpInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
+            placeholder="Type your question…"
+            className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
+          />
+          <Button
+            iconOnly
+            aria-label="Send"
+            icon={<Send size={15} className="text-text-foreground" />}
+            onClick={() => sendHelpMessage(helpInput)}
+            disabled={!helpInput.trim()}
+          />
+        </div>
+      </Sidepanel>
 
       {addLockerToast && (
         <Toast position="bottom-right" title="Locker was added to your Network">

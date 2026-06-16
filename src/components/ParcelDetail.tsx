@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   QrCode,
   CheckCircle,
@@ -6,6 +6,9 @@ import {
   XCircle,
   PackageCheck,
   RotateCcw,
+  Info,
+  MessageCircle,
+  Send,
 } from 'lucide-react'
 import {
   NavBreadcrumb,
@@ -163,6 +166,38 @@ export default function ParcelDetail({
 }: ParcelDetailProps) {
   const baseJourney = useMemo(() => getJourneyForParcel(parcel), [parcel])
   const [codeDialogOpen, setCodeDialogOpen] = useState(false)
+
+  // Right panel tab state
+  const [rightPanelTab, setRightPanelTab] = useState<'details' | 'help'>('details')
+
+  // Help chat state
+  type HelpMessage = { role: 'bot' | 'user'; text: string }
+  const [helpMessages, setHelpMessages] = useState<HelpMessage[]>([
+    { role: 'bot', text: "Hi! I can help with issues on this parcel. What's going on?" },
+  ])
+  const [helpInput, setHelpInput] = useState('')
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false)
+  const helpEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    helpEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [helpMessages])
+
+  const sendHelpMessage = (text: string) => {
+    if (!text.trim()) return
+    setSuggestionsDismissed(true)
+    setHelpMessages(prev => [...prev, { role: 'user', text }])
+    setHelpInput('')
+    const replies: Record<string, string> = {
+      'Parcel is stuck — driver or consignee can\'t collect': "I'll create a carrier issue ticket for this. Is the compartment door not opening, or is there a code or screen error?",
+      'Pickup code not working': "I'll look into this. Is the code being rejected entirely, or is it accepted but the compartment won't open?",
+      'Cancel this booking': "I'll raise a cancellation request for this parcel. Can you confirm this is the correct parcel ID before I proceed?",
+    }
+    const reply = replies[text] ?? "Thanks — I'll help you with that. Can you describe the issue in more detail?"
+    setTimeout(() => {
+      setHelpMessages(prev => [...prev, { role: 'bot', text: reply }])
+    }, 600)
+  }
   const [transitions, setTransitions] = useState<ManualTransition[]>([])
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
   const [collectChoice, setCollectChoice] = useState<'consignee' | 'driver' | null>(null)
@@ -604,65 +639,162 @@ export default function ParcelDetail({
           </div>
 
           {/* Sidebar */}
-          <div className="w-full lg:w-[301px] shrink-0 flex flex-col gap-8">
-            {/* Details Card */}
-            <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-6">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
-                  Details
-                </h3>
-                <ParcelStatusBadge
-                  status={effectiveStatus}
-                  since={lastTransition?.timestamp ?? parcel.lastActivity}
-                  compartmentId={parcel.compartmentId}
-                />
-              </div>
-              <div className="flex flex-col gap-4">
-                <Field
-                  label="Parcel ID"
-                  trailing={<CopyButton value={parcel.parcelId} ariaLabel="Copy parcel ID" />}
-                >
-                  <span className="break-all">{parcel.parcelId}</span>
-                </Field>
-                <Field label="Shipment Type">
-                  <span className="inline-flex items-center gap-1.5">
-                    <img src={shipmentTypeIcon[parcel.shipmentType]} alt="" className="w-4 h-4" />
-                    <span>{shipmentTypeLabel[parcel.shipmentType]}</span>
-                  </span>
-                </Field>
-                <Field label="Reservation">{parcel.reservation}</Field>
-                <Field label="Dimensions">{parcel.dimensions}</Field>
-              </div>
+          <div className="w-full lg:w-[301px] shrink-0 flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-96px)]">
+
+            {/* Tab bar */}
+            <div className="flex border-b border-border-default shrink-0">
+              <button
+                onClick={() => setRightPanelTab('details')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
+                  rightPanelTab === 'details'
+                    ? 'border-text-foreground text-text-foreground'
+                    : 'border-transparent text-text-light hover:text-text-foreground'
+                }`}
+              >
+                <Info size={14} />
+                Details
+              </button>
+              <button
+                onClick={() => setRightPanelTab('help')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
+                  rightPanelTab === 'help'
+                    ? 'border-text-foreground text-text-foreground'
+                    : 'border-transparent text-text-light hover:text-text-foreground'
+                }`}
+              >
+                <MessageCircle size={14} />
+                Help
+              </button>
             </div>
 
-            {/* Assigned Locker Card */}
-            <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-4">
-              <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
-                Assigned Locker
-              </h3>
-              <div className="flex flex-col gap-3 flex-1">
-                <div className="flex gap-2 items-start">
-                  <div className="flex flex-col gap-1 flex-1 min-w-0">
-                    <span className="text-sm font-medium text-text-foreground tracking-[-0.14px] leading-[18px]">
-                      {parcel.assignedLockerName}
-                    </span>
-                    <div className="flex flex-col text-sm text-text-light tracking-[-0.14px] leading-[22px]">
-                      <span>{parcel.assignedLockerStreet}</span>
-                      <span>{parcel.assignedLockerCity}</span>
-                    </div>
+            {/* Details panel */}
+            {rightPanelTab === 'details' && (
+              <div className="flex flex-col gap-8 pt-6 overflow-y-auto">
+                {/* Details Card */}
+                <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
+                      Details
+                    </h3>
+                    <ParcelStatusBadge
+                      status={effectiveStatus}
+                      since={lastTransition?.timestamp ?? parcel.lastActivity}
+                      compartmentId={parcel.compartmentId}
+                    />
                   </div>
-                  <Avatar type="locker" size="md" status="active" />
+                  <div className="flex flex-col gap-4">
+                    <Field
+                      label="Parcel ID"
+                      trailing={<CopyButton value={parcel.parcelId} ariaLabel="Copy parcel ID" />}
+                    >
+                      <span className="break-all">{parcel.parcelId}</span>
+                    </Field>
+                    <Field label="Shipment Type">
+                      <span className="inline-flex items-center gap-1.5">
+                        <img src={shipmentTypeIcon[parcel.shipmentType]} alt="" className="w-4 h-4" />
+                        <span>{shipmentTypeLabel[parcel.shipmentType]}</span>
+                      </span>
+                    </Field>
+                    <Field label="Reservation">{parcel.reservation}</Field>
+                    <Field label="Dimensions">{parcel.dimensions}</Field>
+                  </div>
                 </div>
-                <Button
-                  variant="secondary"
-                  size="md"
-                  onClick={onLockerClick}
-                  className="w-full"
-                >
-                  Show Locker Details
-                </Button>
+
+                {/* Assigned Locker Card */}
+                <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-4">
+                  <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
+                    Assigned Locker
+                  </h3>
+                  <div className="flex flex-col gap-3 flex-1">
+                    <div className="flex gap-2 items-start">
+                      <div className="flex flex-col gap-1 flex-1 min-w-0">
+                        <span className="text-sm font-medium text-text-foreground tracking-[-0.14px] leading-[18px]">
+                          {parcel.assignedLockerName}
+                        </span>
+                        <div className="flex flex-col text-sm text-text-light tracking-[-0.14px] leading-[22px]">
+                          <span>{parcel.assignedLockerStreet}</span>
+                          <span>{parcel.assignedLockerCity}</span>
+                        </div>
+                      </div>
+                      <Avatar type="locker" size="md" status="active" />
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={onLockerClick}
+                      className="w-full"
+                    >
+                      Show Locker Details
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Help panel */}
+            {rightPanelTab === 'help' && (
+              <div className="flex flex-col flex-1 min-h-[480px] lg:min-h-0 overflow-hidden">
+
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                  {helpMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
+                        msg.role === 'bot'
+                          ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
+                          : 'bg-surface-primary text-white self-end rounded-tr-sm'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  ))}
+
+                  {/* Suggestion buttons */}
+                  {!suggestionsDismissed && (
+                    <div className="flex flex-col gap-2 mt-1">
+                      {[
+                        'Parcel is stuck — driver or consignee can\'t collect',
+                        'Pickup code not working',
+                        'Cancel this booking',
+                      ].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => sendHelpMessage(s)}
+                          className="text-left text-sm text-text-foreground border border-border-default rounded-lg px-3.5 py-2.5 bg-surface-card hover:bg-surface-secondary transition-colors"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div ref={helpEndRef} />
+                </div>
+
+                {/* Input */}
+                <div className="shrink-0 border-t border-border-default p-3 flex gap-2">
+                  <input
+                    type="text"
+                    value={helpInput}
+                    onChange={e => setHelpInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
+                    placeholder="Type your question…"
+                    className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
+                  />
+                  <button
+                    onClick={() => sendHelpMessage(helpInput)}
+                    disabled={!helpInput.trim()}
+                    aria-label="Send"
+                    className="flex items-center justify-center w-9 h-9 rounded-lg border border-border-default bg-surface-card hover:bg-surface-secondary disabled:opacity-40 transition-colors"
+                  >
+                    <Send size={15} className="text-text-foreground" />
+                  </button>
+                </div>
+
+              </div>
+            )}
+
           </div>
         </div>
       </div>
