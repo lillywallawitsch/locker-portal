@@ -8,9 +8,8 @@ import {
   AlertCircle,
   Package,
   Activity,
-  Info,
-  MessageCircle,
   Send,
+  X,
 } from 'lucide-react'
 import {
   NavBreadcrumb,
@@ -133,16 +132,15 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
   const [editSidepanelOpen, setEditSidepanelOpen] = useState(false)
   const [openingHoursExpanded, setOpeningHoursExpanded] = useState(false)
 
-  // Right panel tab state
-  const [rightPanelTab, setRightPanelTab] = useState<'details' | 'help'>('details')
+  // Help panel state (always visible on detail pages)
+  const [helpOpen, setHelpOpen] = useState(true)
 
   // Help chat state
   type HelpMessage = { role: 'bot' | 'user'; text: string }
   const [helpMessages, setHelpMessages] = useState<HelpMessage[]>([
-    { role: 'bot', text: "Hi! I can help with issues on this locker. What's going on?" },
+    { role: 'bot', text: `I can see ${locker.name}. What's the issue?` },
   ])
   const [helpInput, setHelpInput] = useState('')
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false)
   const helpEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -151,15 +149,9 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
 
   const sendHelpMessage = (text: string) => {
     if (!text.trim()) return
-    setSuggestionsDismissed(true)
     setHelpMessages(prev => [...prev, { role: 'user', text }])
     setHelpInput('')
-    const replies: Record<string, string> = {
-      'Wrong compartment availability showing': "I'll raise a carrier issue for this locker. Can you confirm what the platform shows vs what you see physically at the locker?",
-      'Locker appears offline or isn\'t responding': "I'll create a ticket to investigate the offline status. Is this affecting deposits, collections, or both?",
-      'Request a data update for this locker': "Sure — what needs to be updated? For example: address, locker ID, or other details.",
-    }
-    const reply = replies[text] ?? "Thanks — I'll help you with that. Can you describe the issue in more detail?"
+    const reply = "Thanks — I'll help you with that. Can you describe the issue in more detail?"
     setTimeout(() => {
       setHelpMessages(prev => [...prev, { role: 'bot', text: reply }])
     }, 600)
@@ -285,7 +277,9 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
   }, [filteredParcels, sortKey, sortDirection])
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex flex-1 overflow-hidden h-full">
+    {/* Left: scrollable main content */}
+    <div className="flex-1 overflow-y-auto min-w-0">
       <EditLockerInformationSidepanel
         open={editSidepanelOpen}
         onClose={() => setEditSidepanelOpen(false)}
@@ -386,22 +380,32 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
               </div>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            size="md"
-            icon={<Pencil size={16} />}
-            onClick={() => setEditSidepanelOpen(true)}
-          >
-            {isPreActivation ? 'Edit Locker' : 'Edit Locker Information'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="md"
+              icon={<Pencil size={16} />}
+              onClick={() => setEditSidepanelOpen(true)}
+            >
+              {isPreActivation ? 'Edit Locker' : 'Edit Locker Information'}
+            </Button>
+            {!helpOpen && (
+              <Button
+                variant="secondary"
+                size="md"
+                icon={<HelpCircle size={16} />}
+                onClick={() => setHelpOpen(true)}
+              >
+                Help
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Two-column layout */}
+      {/* Main Content */}
       <div className="px-4 pt-[22px] pb-8">
-        <div className="flex flex-col lg:flex-row gap-4 items-start">
-          {/* Main Content */}
-          <div className="flex-1 min-w-0 flex flex-col gap-[32px] w-full lg:w-auto">
+        <div className="flex flex-col gap-[32px]">
             {/* Compartment Availability */}
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -780,271 +784,205 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
                 )
               })()}
             </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="w-full lg:w-[301px] shrink-0 flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-96px)]">
-
-            {/* Tab bar */}
-            <div className="flex border-b border-border-default shrink-0">
-              <button
-                onClick={() => setRightPanelTab('details')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
-                  rightPanelTab === 'details'
-                    ? 'border-text-foreground text-text-foreground'
-                    : 'border-transparent text-text-light hover:text-text-foreground'
-                }`}
-              >
-                <Info size={14} />
-                Details
-              </button>
-              <button
-                onClick={() => setRightPanelTab('help')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
-                  rightPanelTab === 'help'
-                    ? 'border-text-foreground text-text-foreground'
-                    : 'border-transparent text-text-light hover:text-text-foreground'
-                }`}
-              >
-                <MessageCircle size={14} />
-                Help
-              </button>
-            </div>
-
-            {/* Details panel */}
-            {rightPanelTab === 'details' && (
-              <div className="flex flex-col gap-8 pt-6 overflow-y-auto">
-            {/* Carrier */}
-            <Card
-              title="Carrier"
-              headerRight={<LockerStatusBadge status={effectiveStatus} since={locker.statusSince} />}
-            >
-              <Field
-                label="Carrier Locker ID"
-                trailing={<CopyButton value={locker.id} ariaLabel="Copy locker ID" />}
-              >
-                <span className="break-all">{locker.id}</span>
-              </Field>
-              <Field label={depotTerm(carrier.id)}>{locker.depot || '—'}</Field>
-              <Field label="Region">{locker.region || '—'}</Field>
-              <Field label="Activation Date">{formatActivationDate(locker.activationDate)}</Field>
-              {showOwnedBy(carrier.id) && (
-                <Field label="Owned by">{locker.ownedBy || '—'}</Field>
-              )}
-              {locker.ownership === 'owned' && lockerShares.length > 0 && (
-                <Field label="Shared with">
-                  <div className="flex flex-col gap-2">
-                    {lockerShares.map((share) => (
-                      <div key={share.id} className="flex items-center justify-between gap-3">
-                        <span className="truncate">{share.invitedCarrier.name}</span>
-                        <StatusBadge
-                          status={shareStatusVariant[share.status]}
-                          label={shareStatusLabel[share.status]}
-                          hideIcon
-                          since={share.statusChangedAt}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </Field>
-              )}
-              {effectiveStatus === 'active' && (
-                <Button
-                  variant="secondary"
-                  size="md"
-                  className="w-full"
-                  onClick={() => setDeactivateDialogOpen(true)}
-                >
-                  Deactivate Locker
-                </Button>
-              )}
-              {effectiveStatus === 'inactive' && (
-                <Button
-                  variant="primary"
-                  size="md"
-                  className="w-full"
-                  onClick={() => setActivateDialogOpen(true)}
-                >
-                  Activate Locker
-                </Button>
-              )}
-            </Card>
-
-            {/* Provider */}
-            <Card
-              title="Provider"
-              headerRight={<StatusBadge status={locker.providerStatus} />}
-            >
-              <Field
-                label="Provider Locker ID"
-                trailing={
-                  locker.providerLockerId ? (
-                    <CopyButton value={locker.providerLockerId} ariaLabel="Copy provider locker ID" />
-                  ) : undefined
-                }
-              >
-                <span className="break-all">{locker.providerLockerId || '—'}</span>
-              </Field>
-              <Field label="Provider Name">
-                <span className="inline-flex items-center gap-1.5">
-                  <ProviderLogo provider={locker.provider} size="sm" />
-                  {providerLabels[locker.provider]}
-                </span>
-              </Field>
-              <Field label="Locker Model">{locker.providerLockerModel || '—'}</Field>
-              <Field label="Locker Version">{locker.providerLockerVersion || '—'}</Field>
-            </Card>
-
-            {/* Location */}
-            <Card
-              title="Location"
-              headerRight={<OpeningStatusBadge hours={locker.openingHours} />}
-            >
-              <LocationMap
-                latitude={locker.latitude}
-                longitude={locker.longitude}
-                href={`https://www.google.com/maps?q=${locker.latitude},${locker.longitude}`}
-              />
-              <Field
-                label="Address"
-                trailing={
-                  <a
-                    href={`https://www.google.com/maps?q=${locker.latitude},${locker.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Open in Google Maps"
-                    className="flex items-center justify-center w-7 h-7 rounded-md bg-transparent border-0 hover:bg-surface-secondary"
-                  >
-                    <Navigation size={16} className="text-text-foreground" />
-                  </a>
-                }
-              >
-                <div className="flex flex-col">
-                  <span>{locker.street}</span>
-                  <span className="text-text-light font-normal">{locker.city}</span>
-                </div>
-              </Field>
-              {showHost(carrier.id) && (
-                <Field label="Host">
-                  {locker.host
-                    ? `${venueTypeLabels[locker.venueType]}, ${locker.host}`
-                    : venueTypeLabels[locker.venueType]}
-                </Field>
-              )}
-              <Field label="Positioning">{placementLabels[locker.placement]}</Field>
-              <OpeningHoursField
-                hours={locker.openingHours}
-                expanded={openingHoursExpanded}
-                onToggle={() => setOpeningHoursExpanded((v) => !v)}
-              />
-            </Card>
-
-            {/* Compartment Card */}
-            <Card
-              title="Compartments"
-              headerRight={
-                <span
-                  title={`${total} compartments in total`}
-                  className="inline-flex items-center justify-center min-w-7 h-6 px-2 rounded-full border border-border-default bg-surface-card text-xs font-medium tracking-[-0.14px] text-text-foreground"
-                >
-                  {total}
-                </span>
-              }
-            >
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(sizeBreakdown).map(([label, count]) => (
-                  <div
-                    key={label}
-                    className="flex flex-col gap-3 p-3 bg-surface-secondary rounded-xl"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm text-text-light tracking-[-0.14px]">
-                        {label}
-                      </span>
-                      <span
-                        title={compartmentSizeDimensions[label]}
-                        className="flex items-center"
-                      >
-                        <HelpCircle size={14} className="text-text-light shrink-0" />
-                      </span>
-                    </div>
-                    <span className="text-xl font-semibold text-text-foreground tracking-[-0.2px] leading-7">
-                      {count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-              </div>
-            )}
-
-            {/* Help panel */}
-            {rightPanelTab === 'help' && (
-              <div className="flex flex-col flex-1 min-h-[480px] lg:min-h-0 overflow-hidden">
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                  {helpMessages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
-                        msg.role === 'bot'
-                          ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
-                          : 'bg-surface-primary text-white self-end rounded-tr-sm'
-                      }`}
-                    >
-                      {msg.text}
-                    </div>
-                  ))}
-
-                  {/* Suggestion buttons */}
-                  {!suggestionsDismissed && (
-                    <div className="flex flex-col gap-2 mt-1">
-                      {[
-                        'Wrong compartment availability showing',
-                        'Locker appears offline or isn\'t responding',
-                        'Request a data update for this locker',
-                      ].map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => sendHelpMessage(s)}
-                          className="text-left text-sm text-text-foreground border border-border-default rounded-lg px-3.5 py-2.5 bg-surface-card hover:bg-surface-secondary transition-colors"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <div ref={helpEndRef} />
-                </div>
-
-                {/* Input */}
-                <div className="shrink-0 border-t border-border-default p-3 flex gap-2">
-                  <input
-                    type="text"
-                    value={helpInput}
-                    onChange={e => setHelpInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
-                    placeholder="Type your question…"
-                    className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
-                  />
-                  <button
-                    onClick={() => sendHelpMessage(helpInput)}
-                    disabled={!helpInput.trim()}
-                    aria-label="Send"
-                    className="flex items-center justify-center w-9 h-9 rounded-lg border border-border-default bg-surface-card hover:bg-surface-secondary disabled:opacity-40 transition-colors"
-                  >
-                    <Send size={15} className="text-text-foreground" />
-                  </button>
-                </div>
-
-              </div>
-            )}
-
-          </div>
         </div>
       </div>
+    </div>
+
+    {/* Right: sidebar (detail cards) or Help panel */}
+    <div className="w-[301px] shrink-0 border-l border-border-default flex flex-col overflow-hidden">
+      {helpOpen ? (
+        /* Help panel */
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between gap-4 px-4 pt-5 pb-4 border-b border-border-default shrink-0">
+            <h2 className="text-xl font-semibold leading-7 tracking-[-0.3px] text-text-foreground m-0">Help</h2>
+            <Button iconOnly aria-label="Close help panel" icon={<X size={15} className="text-text-foreground" />} onClick={() => setHelpOpen(false)} />
+          </div>
+          {/* Context block */}
+          <div className="px-4 pt-4 shrink-0">
+            <div className="bg-surface-secondary border-l-2 border-surface-primary rounded-r-lg px-3 py-2.5 flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-text-foreground tracking-[-0.14px] leading-[22px] truncate">{locker.name}</span>
+              <span className="text-xs text-text-light tracking-[-0.12px] leading-5">{locker.id}</span>
+              <LockerStatusBadge status={effectiveStatus} />
+            </div>
+          </div>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+            {helpMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
+                  msg.role === 'bot'
+                    ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
+                    : 'bg-surface-primary text-white self-end rounded-tr-sm'
+                }`}
+              >
+                {msg.text}
+              </div>
+            ))}
+            <div ref={helpEndRef} />
+          </div>
+          {/* Input */}
+          <div className="shrink-0 border-t border-border-default p-3 flex gap-2">
+            <input
+              type="text"
+              value={helpInput}
+              onChange={e => setHelpInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
+              placeholder="Type your question…"
+              className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
+            />
+            <button
+              onClick={() => sendHelpMessage(helpInput)}
+              disabled={!helpInput.trim()}
+              aria-label="Send"
+              className="flex items-center justify-center w-9 h-9 rounded-lg border border-border-default bg-surface-card hover:bg-surface-secondary disabled:opacity-40 transition-colors"
+            >
+              <Send size={15} className="text-text-foreground" />
+            </button>
+          </div>
+        </>
+      ) : (
+        /* Detail cards sidebar */
+        <div className="flex-1 overflow-y-auto flex flex-col gap-4 p-4">
+          {/* Carrier Card */}
+          <Card
+            title="Carrier"
+            headerRight={<LockerStatusBadge status={effectiveStatus} since={locker.statusSince} />}
+          >
+            <Field
+              label="Carrier Locker ID"
+              trailing={<CopyButton value={locker.id} ariaLabel="Copy locker ID" />}
+            >
+              <span className="break-all">{locker.id}</span>
+            </Field>
+            <Field label={depotTerm(carrier.id)}>{locker.depot || '—'}</Field>
+            <Field label="Region">{locker.region || '—'}</Field>
+            <Field label="Activation Date">{formatActivationDate(locker.activationDate)}</Field>
+            {showOwnedBy(carrier.id) && (
+              <Field label="Owned by">{locker.ownedBy || '—'}</Field>
+            )}
+            {locker.ownership === 'owned' && lockerShares.length > 0 && (
+              <Field label="Shared with">
+                <div className="flex flex-col gap-2">
+                  {lockerShares.map((share) => (
+                    <div key={share.id} className="flex items-center justify-between gap-3">
+                      <span className="truncate">{share.invitedCarrier.name}</span>
+                      <StatusBadge
+                        status={shareStatusVariant[share.status]}
+                        label={shareStatusLabel[share.status]}
+                        hideIcon
+                        since={share.statusChangedAt}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Field>
+            )}
+            {effectiveStatus === 'active' && (
+              <Button variant="secondary" size="md" className="w-full" onClick={() => setDeactivateDialogOpen(true)}>
+                Deactivate Locker
+              </Button>
+            )}
+            {effectiveStatus === 'inactive' && (
+              <Button variant="primary" size="md" className="w-full" onClick={() => setActivateDialogOpen(true)}>
+                Activate Locker
+              </Button>
+            )}
+          </Card>
+
+          {/* Provider Card */}
+          <Card title="Provider" headerRight={<StatusBadge status={locker.providerStatus} />}>
+            <Field
+              label="Provider Locker ID"
+              trailing={
+                locker.providerLockerId ? (
+                  <CopyButton value={locker.providerLockerId} ariaLabel="Copy provider locker ID" />
+                ) : undefined
+              }
+            >
+              <span className="break-all">{locker.providerLockerId || '—'}</span>
+            </Field>
+            <Field label="Provider Name">
+              <span className="inline-flex items-center gap-1.5">
+                <ProviderLogo provider={locker.provider} size="sm" />
+                {providerLabels[locker.provider]}
+              </span>
+            </Field>
+            <Field label="Locker Model">{locker.providerLockerModel || '—'}</Field>
+            <Field label="Locker Version">{locker.providerLockerVersion || '—'}</Field>
+          </Card>
+
+          {/* Location Card */}
+          <Card title="Location" headerRight={<OpeningStatusBadge hours={locker.openingHours} />}>
+            <LocationMap
+              latitude={locker.latitude}
+              longitude={locker.longitude}
+              href={`https://www.google.com/maps?q=${locker.latitude},${locker.longitude}`}
+            />
+            <Field
+              label="Address"
+              trailing={
+                <a
+                  href={`https://www.google.com/maps?q=${locker.latitude},${locker.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open in Google Maps"
+                  className="flex items-center justify-center w-7 h-7 rounded-md bg-transparent border-0 hover:bg-surface-secondary"
+                >
+                  <Navigation size={16} className="text-text-foreground" />
+                </a>
+              }
+            >
+              <div className="flex flex-col">
+                <span>{locker.street}</span>
+                <span className="text-text-light font-normal">{locker.city}</span>
+              </div>
+            </Field>
+            {showHost(carrier.id) && (
+              <Field label="Host">
+                {locker.host
+                  ? `${venueTypeLabels[locker.venueType]}, ${locker.host}`
+                  : venueTypeLabels[locker.venueType]}
+              </Field>
+            )}
+            <Field label="Positioning">{placementLabels[locker.placement]}</Field>
+            <OpeningHoursField
+              hours={locker.openingHours}
+              expanded={openingHoursExpanded}
+              onToggle={() => setOpeningHoursExpanded((v) => !v)}
+            />
+          </Card>
+
+          {/* Compartments Card */}
+          <Card
+            title="Compartments"
+            headerRight={
+              <span
+                title={`${total} compartments in total`}
+                className="inline-flex items-center justify-center min-w-7 h-6 px-2 rounded-full border border-border-default bg-surface-card text-xs font-medium tracking-[-0.14px] text-text-foreground"
+              >
+                {total}
+              </span>
+            }
+          >
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(sizeBreakdown).map(([label, count]) => (
+                <div key={label} className="flex flex-col gap-3 p-3 bg-surface-secondary rounded-xl">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-text-light tracking-[-0.14px]">{label}</span>
+                    <span title={compartmentSizeDimensions[label]} className="flex items-center">
+                      <HelpCircle size={14} className="text-text-light shrink-0" />
+                    </span>
+                  </div>
+                  <span className="text-xl font-semibold text-text-foreground tracking-[-0.2px] leading-7">{count}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
     </div>
   )
 }

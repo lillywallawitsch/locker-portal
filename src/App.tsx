@@ -23,7 +23,6 @@ import AddLockerSidepanel from './components/AddLockerSidepanel'
 import type { AddLockerFormValues } from './components/AddLockerSidepanel'
 import { Plus, RefreshCw } from 'lucide-react'
 import { Button, Toast } from './lib/unity'
-import { Sidepanel } from './lib/ooh-kit'
 import type { Locker } from './data/lockers'
 import { getLockerDataForCarrier } from './data/lockers'
 import { getParcelDataForCarrier } from './data/parcels'
@@ -510,49 +509,117 @@ function App() {
         <Route
           path="/lockers"
           element={
-            <main className="flex-1 overflow-auto relative">
-              <div className="px-[18px] pt-[21px]">
-                <NavBreadcrumb items={[{ label: 'Locker Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
-              </div>
-              <div className="px-[18px] pt-[12px]">
-                <PageHeader
-                  title="Lockers"
-                  subtitle={refreshSubtitle}
-                  actions={
+            <div className="flex flex-1 overflow-hidden h-full">
+              <main className="flex-1 overflow-auto relative min-w-0">
+                <div className="px-[18px] pt-[21px]">
+                  <NavBreadcrumb items={[{ label: 'Locker Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
+                </div>
+                <div className="px-[18px] pt-[12px]">
+                  <PageHeader
+                    title="Lockers"
+                    subtitle={refreshSubtitle}
+                    actions={
+                      <Button
+                        variant="primary"
+                        size="md"
+                        icon={<Plus size={16} />}
+                        onClick={() => setAddLockerOpen(true)}
+                      >
+                        Add new Locker
+                      </Button>
+                    }
+                  />
+                  <div className="mt-6">
+                    {lockerView === 'grid' ? (
+                      <LockerGrid
+                        onLockerClick={openLocker}
+                        view="grid"
+                        onViewChange={setLockerView}
+                      />
+                    ) : (
+                      <LockerTable onLockerClick={openLocker} />
+                    )}
+                  </div>
+                </div>
+                {/* Help FAB — hidden when panel is open */}
+                {!helpOpen && (
+                  <div className="fixed bottom-6 right-6 z-40">
                     <Button
                       variant="primary"
                       size="md"
-                      icon={<Plus size={16} />}
-                      onClick={() => setAddLockerOpen(true)}
+                      icon={<MessageCircle size={16} />}
+                      onClick={() => setHelpOpen(true)}
                     >
-                      Add new Locker
+                      Help
                     </Button>
-                  }
-                />
-                <div className="mt-6">
-                  {lockerView === 'grid' ? (
-                    <LockerGrid
-                      onLockerClick={openLocker}
-                      view="grid"
-                      onViewChange={setLockerView}
+                  </div>
+                )}
+              </main>
+              {helpOpen && (
+                <div className="w-[320px] shrink-0 border-l border-border-default flex flex-col overflow-hidden">
+                  {/* Header */}
+                  <div className="flex flex-col gap-1 border-b border-border-default px-5 pt-6 pb-5 shrink-0">
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="text-xl font-semibold leading-7 tracking-[-0.3px] text-text-foreground m-0">
+                        Help
+                      </h2>
+                      <Button iconOnly aria-label="Close help panel" icon={<X size={15} className="text-text-foreground" />} onClick={() => setHelpOpen(false)} />
+                    </div>
+                    <p className="text-sm text-text-light leading-[22px] tracking-[-0.14px] m-0">
+                      Ask a question, report an issue or request a new feature
+                    </p>
+                  </div>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+                    {helpMessages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
+                          msg.role === 'bot'
+                            ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
+                            : 'bg-surface-primary text-white self-end rounded-tr-sm'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                    ))}
+                    {/* Suggestions */}
+                    {!helpSuggestionsDismissed && (
+                      <div className="flex flex-col gap-2 mt-1">
+                        {["A parcel is stuck or a compartment won't open", 'Cancel a booking', 'Locker data is wrong on the platform', 'Pickup code not working', 'Request a change or new feature'].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => sendHelpMessage(s)}
+                            className="text-left text-sm text-text-foreground border border-border-default rounded-lg px-3.5 py-2.5 bg-surface-card hover:bg-surface-secondary transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div ref={helpEndRef} />
+                  </div>
+                  {/* Input footer */}
+                  <div className="flex items-center gap-2 border-t border-border-default p-3 shrink-0">
+                    <input
+                      type="text"
+                      value={helpInput}
+                      onChange={e => setHelpInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
+                      placeholder="Type your question…"
+                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
                     />
-                  ) : (
-                    <LockerTable onLockerClick={openLocker} />
-                  )}
+                    <Button
+                      iconOnly
+                      aria-label="Send"
+                      icon={<Send size={15} className="text-text-foreground" />}
+                      onClick={() => sendHelpMessage(helpInput)}
+                      disabled={!helpInput.trim()}
+                    />
+                  </div>
                 </div>
-              </div>
-              {/* Help FAB */}
-              <div className="fixed bottom-6 right-6 z-40">
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={<MessageCircle size={16} />}
-                  onClick={() => setHelpOpen(true)}
-                >
-                  Help
-                </Button>
-              </div>
-            </main>
+              )}
+            </div>
           }
         />
 
@@ -566,34 +633,102 @@ function App() {
         <Route
           path="/parcels"
           element={
-            <main className="flex-1 overflow-auto relative">
-              <div className="px-[18px] pt-[21px]">
-                <NavBreadcrumb items={[{ label: 'Parcel Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
-              </div>
-              <div className="px-[18px] pt-[12px]">
-                <PageHeader title="Parcels" subtitle={refreshSubtitle} />
-                <div className="mt-6">
-                  <ParcelTable
-                    onParcelClick={(parcel) =>
-                      navigate(`/parcels/${encodeURIComponent(parcel.parcelId)}${carrierSearch(activeCarrierId)}`, {
-                        state: { from: 'parcel-overview', listSearch: searchParams.toString() },
-                      })
-                    }
-                  />
+            <div className="flex flex-1 overflow-hidden h-full">
+              <main className="flex-1 overflow-auto relative min-w-0">
+                <div className="px-[18px] pt-[21px]">
+                  <NavBreadcrumb items={[{ label: 'Parcel Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
                 </div>
-              </div>
-              {/* Help FAB */}
-              <div className="fixed bottom-6 right-6 z-40">
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={<MessageCircle size={16} />}
-                  onClick={() => setHelpOpen(true)}
-                >
-                  Help
-                </Button>
-              </div>
-            </main>
+                <div className="px-[18px] pt-[12px]">
+                  <PageHeader title="Parcels" subtitle={refreshSubtitle} />
+                  <div className="mt-6">
+                    <ParcelTable
+                      onParcelClick={(parcel) =>
+                        navigate(`/parcels/${encodeURIComponent(parcel.parcelId)}${carrierSearch(activeCarrierId)}`, {
+                          state: { from: 'parcel-overview', listSearch: searchParams.toString() },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                {/* Help FAB — hidden when panel is open */}
+                {!helpOpen && (
+                  <div className="fixed bottom-6 right-6 z-40">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      icon={<MessageCircle size={16} />}
+                      onClick={() => setHelpOpen(true)}
+                    >
+                      Help
+                    </Button>
+                  </div>
+                )}
+              </main>
+              {helpOpen && (
+                <div className="w-[320px] shrink-0 border-l border-border-default flex flex-col overflow-hidden">
+                  {/* Header */}
+                  <div className="flex flex-col gap-1 border-b border-border-default px-5 pt-6 pb-5 shrink-0">
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="text-xl font-semibold leading-7 tracking-[-0.3px] text-text-foreground m-0">
+                        Help
+                      </h2>
+                      <Button iconOnly aria-label="Close help panel" icon={<X size={15} className="text-text-foreground" />} onClick={() => setHelpOpen(false)} />
+                    </div>
+                    <p className="text-sm text-text-light leading-[22px] tracking-[-0.14px] m-0">
+                      Ask a question, report an issue or request a new feature
+                    </p>
+                  </div>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+                    {helpMessages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
+                          msg.role === 'bot'
+                            ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
+                            : 'bg-surface-primary text-white self-end rounded-tr-sm'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                    ))}
+                    {/* Suggestions */}
+                    {!helpSuggestionsDismissed && (
+                      <div className="flex flex-col gap-2 mt-1">
+                        {["A parcel is stuck or a compartment won't open", 'Cancel a booking', 'Locker data is wrong on the platform', 'Pickup code not working', 'Request a change or new feature'].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => sendHelpMessage(s)}
+                            className="text-left text-sm text-text-foreground border border-border-default rounded-lg px-3.5 py-2.5 bg-surface-card hover:bg-surface-secondary transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div ref={helpEndRef} />
+                  </div>
+                  {/* Input footer */}
+                  <div className="flex items-center gap-2 border-t border-border-default p-3 shrink-0">
+                    <input
+                      type="text"
+                      value={helpInput}
+                      onChange={e => setHelpInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
+                      placeholder="Type your question…"
+                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
+                    />
+                    <Button
+                      iconOnly
+                      aria-label="Send"
+                      icon={<Send size={15} className="text-text-foreground" />}
+                      onClick={() => sendHelpMessage(helpInput)}
+                      disabled={!helpInput.trim()}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           }
         />
 
@@ -642,73 +777,6 @@ function App() {
         onClose={() => setAddLockerOpen(false)}
         onAdd={handleAddLocker}
       />
-
-      {/* Help panel */}
-      <Sidepanel open={helpOpen} onClose={() => setHelpOpen(false)} backdrop="dim">
-        {/* Header */}
-        <div className="flex flex-col gap-1 border-b border-border-default px-6 pt-8 pb-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold leading-8 tracking-[-0.48px] text-text-foreground m-0">
-              Help
-            </h2>
-            <Button iconOnly aria-label="Close" icon={<X size={15} className="text-text-foreground" />} onClick={() => setHelpOpen(false)} />
-          </div>
-          <p className="text-base text-text-light leading-6 tracking-[-0.16px] m-0">
-            Ask a question, report an issue or request a new feature
-          </p>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-3">
-          {helpMessages.map((msg, i) => (
-            <div
-              key={i}
-              className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
-                msg.role === 'bot'
-                  ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
-                  : 'bg-surface-primary text-white self-end rounded-tr-sm'
-              }`}
-            >
-              {msg.text}
-            </div>
-          ))}
-
-          {/* Suggestions */}
-          {!helpSuggestionsDismissed && (
-            <div className="flex flex-col gap-2 mt-1">
-              {['A parcel is stuck or a compartment won\'t open', 'Cancel a booking', 'Locker data is wrong on the platform', 'Pickup code not working', 'Request a change or new feature'].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => sendHelpMessage(s)}
-                  className="text-left text-sm text-text-foreground border border-border-default rounded-lg px-3.5 py-2.5 bg-surface-card hover:bg-surface-secondary transition-colors"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-          <div ref={helpEndRef} />
-        </div>
-
-        {/* Input footer */}
-        <div className="flex items-center gap-2 border-t border-border-default p-4">
-          <input
-            type="text"
-            value={helpInput}
-            onChange={e => setHelpInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
-            placeholder="Type your question…"
-            className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
-          />
-          <Button
-            iconOnly
-            aria-label="Send"
-            icon={<Send size={15} className="text-text-foreground" />}
-            onClick={() => sendHelpMessage(helpInput)}
-            disabled={!helpInput.trim()}
-          />
-        </div>
-      </Sidepanel>
 
       {addLockerToast && (
         <Toast position="bottom-right" title="Locker was added to your Network">

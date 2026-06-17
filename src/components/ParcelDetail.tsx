@@ -6,9 +6,8 @@ import {
   XCircle,
   PackageCheck,
   RotateCcw,
-  Info,
-  MessageCircle,
   Send,
+  X,
 } from 'lucide-react'
 import {
   NavBreadcrumb,
@@ -167,16 +166,15 @@ export default function ParcelDetail({
   const baseJourney = useMemo(() => getJourneyForParcel(parcel), [parcel])
   const [codeDialogOpen, setCodeDialogOpen] = useState(false)
 
-  // Right panel tab state
-  const [rightPanelTab, setRightPanelTab] = useState<'details' | 'help'>('details')
+  // Help panel state (always visible on detail pages)
+  const [helpOpen, setHelpOpen] = useState(true)
 
   // Help chat state
   type HelpMessage = { role: 'bot' | 'user'; text: string }
   const [helpMessages, setHelpMessages] = useState<HelpMessage[]>([
-    { role: 'bot', text: "Hi! I can help with issues on this parcel. What's going on?" },
+    { role: 'bot', text: `I can see ${parcel.parcelId}. What's the issue?` },
   ])
   const [helpInput, setHelpInput] = useState('')
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false)
   const helpEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -185,15 +183,9 @@ export default function ParcelDetail({
 
   const sendHelpMessage = (text: string) => {
     if (!text.trim()) return
-    setSuggestionsDismissed(true)
     setHelpMessages(prev => [...prev, { role: 'user', text }])
     setHelpInput('')
-    const replies: Record<string, string> = {
-      'Parcel is stuck — driver or consignee can\'t collect': "I'll create a carrier issue ticket for this. Is the compartment door not opening, or is there a code or screen error?",
-      'Pickup code not working': "I'll look into this. Is the code being rejected entirely, or is it accepted but the compartment won't open?",
-      'Cancel this booking': "I'll raise a cancellation request for this parcel. Can you confirm this is the correct parcel ID before I proceed?",
-    }
-    const reply = replies[text] ?? "Thanks — I'll help you with that. Can you describe the issue in more detail?"
+    const reply = "Thanks — I'll help you with that. Can you describe the issue in more detail?"
     setTimeout(() => {
       setHelpMessages(prev => [...prev, { role: 'bot', text: reply }])
     }, 600)
@@ -324,7 +316,9 @@ export default function ParcelDetail({
   })
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex flex-1 overflow-hidden h-full">
+    {/* Left: scrollable content */}
+    <div className="flex-1 overflow-y-auto min-w-0">
       <CompartmentCodeDialog
         open={codeDialogOpen}
         onClose={() => setCodeDialogOpen(false)}
@@ -559,15 +553,76 @@ export default function ParcelDetail({
         </div>
       </div>
 
-      {/* Two-column layout */}
+      {/* Detail cards — Details + Assigned Locker */}
+      <div className="px-4 pt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Details Card */}
+          <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-6">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
+                Details
+              </h3>
+              <ParcelStatusBadge
+                status={effectiveStatus}
+                since={lastTransition?.timestamp ?? parcel.lastActivity}
+                compartmentId={parcel.compartmentId}
+              />
+            </div>
+            <div className="flex flex-col gap-4">
+              <Field
+                label="Parcel ID"
+                trailing={<CopyButton value={parcel.parcelId} ariaLabel="Copy parcel ID" />}
+              >
+                <span className="break-all">{parcel.parcelId}</span>
+              </Field>
+              <Field label="Shipment Type">
+                <span className="inline-flex items-center gap-1.5">
+                  <img src={shipmentTypeIcon[parcel.shipmentType]} alt="" className="w-4 h-4" />
+                  <span>{shipmentTypeLabel[parcel.shipmentType]}</span>
+                </span>
+              </Field>
+              <Field label="Reservation">{parcel.reservation}</Field>
+              <Field label="Dimensions">{parcel.dimensions}</Field>
+            </div>
+          </div>
+
+          {/* Assigned Locker Card */}
+          <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-4">
+            <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
+              Assigned Locker
+            </h3>
+            <div className="flex flex-col gap-3 flex-1">
+              <div className="flex gap-2 items-start">
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <span className="text-sm font-medium text-text-foreground tracking-[-0.14px] leading-[18px]">
+                    {parcel.assignedLockerName}
+                  </span>
+                  <div className="flex flex-col text-sm text-text-light tracking-[-0.14px] leading-[22px]">
+                    <span>{parcel.assignedLockerStreet}</span>
+                    <span>{parcel.assignedLockerCity}</span>
+                  </div>
+                </div>
+                <Avatar type="locker" size="md" status="active" />
+              </div>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={onLockerClick}
+                className="w-full"
+              >
+                Show Locker Details
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content — Parcel Journey */}
       <div className="px-4 pt-4 pb-8">
-        <div className="flex flex-col lg:flex-row gap-4 items-start">
-          {/* Main Content — Parcel Journey */}
-          <div className="flex-1 min-w-0 w-full lg:w-auto lg:pr-4">
-            <div className="flex flex-col gap-6">
-              <h2 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
-                Parcel Journey
-              </h2>
+        <div className="flex flex-col gap-6">
+          <h2 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
+            Parcel Journey
+          </h2>
               <div className="border border-border-default rounded-[10px] overflow-visible">
                 <table className="w-full border-collapse">
                   <thead>
@@ -637,167 +692,73 @@ export default function ParcelDetail({
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Sidebar */}
-          <div className="w-full lg:w-[301px] shrink-0 flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-96px)]">
+    {/* Right: persistent Help panel */}
+    {helpOpen && (
+      <div className="w-[300px] shrink-0 border-l border-border-default flex flex-col sticky top-0 h-screen overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4 px-4 pt-5 pb-4 border-b border-border-default shrink-0">
+          <h2 className="text-xl font-semibold leading-7 tracking-[-0.3px] text-text-foreground m-0">
+            Help
+          </h2>
+          <Button iconOnly aria-label="Close help panel" icon={<X size={15} className="text-text-foreground" />} onClick={() => setHelpOpen(false)} />
+        </div>
 
-            {/* Tab bar */}
-            <div className="flex border-b border-border-default shrink-0">
-              <button
-                onClick={() => setRightPanelTab('details')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
-                  rightPanelTab === 'details'
-                    ? 'border-text-foreground text-text-foreground'
-                    : 'border-transparent text-text-light hover:text-text-foreground'
-                }`}
-              >
-                <Info size={14} />
-                Details
-              </button>
-              <button
-                onClick={() => setRightPanelTab('help')}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
-                  rightPanelTab === 'help'
-                    ? 'border-text-foreground text-text-foreground'
-                    : 'border-transparent text-text-light hover:text-text-foreground'
-                }`}
-              >
-                <MessageCircle size={14} />
-                Help
-              </button>
-            </div>
-
-            {/* Details panel */}
-            {rightPanelTab === 'details' && (
-              <div className="flex flex-col gap-8 pt-6 overflow-y-auto">
-                {/* Details Card */}
-                <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
-                      Details
-                    </h3>
-                    <ParcelStatusBadge
-                      status={effectiveStatus}
-                      since={lastTransition?.timestamp ?? parcel.lastActivity}
-                      compartmentId={parcel.compartmentId}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-4">
-                    <Field
-                      label="Parcel ID"
-                      trailing={<CopyButton value={parcel.parcelId} ariaLabel="Copy parcel ID" />}
-                    >
-                      <span className="break-all">{parcel.parcelId}</span>
-                    </Field>
-                    <Field label="Shipment Type">
-                      <span className="inline-flex items-center gap-1.5">
-                        <img src={shipmentTypeIcon[parcel.shipmentType]} alt="" className="w-4 h-4" />
-                        <span>{shipmentTypeLabel[parcel.shipmentType]}</span>
-                      </span>
-                    </Field>
-                    <Field label="Reservation">{parcel.reservation}</Field>
-                    <Field label="Dimensions">{parcel.dimensions}</Field>
-                  </div>
-                </div>
-
-                {/* Assigned Locker Card */}
-                <div className="border border-border-default rounded-[10px] bg-surface-card p-6 flex flex-col gap-4">
-                  <h3 className="text-lg font-semibold leading-6 tracking-[-0.28px] text-text-foreground m-0">
-                    Assigned Locker
-                  </h3>
-                  <div className="flex flex-col gap-3 flex-1">
-                    <div className="flex gap-2 items-start">
-                      <div className="flex flex-col gap-1 flex-1 min-w-0">
-                        <span className="text-sm font-medium text-text-foreground tracking-[-0.14px] leading-[18px]">
-                          {parcel.assignedLockerName}
-                        </span>
-                        <div className="flex flex-col text-sm text-text-light tracking-[-0.14px] leading-[22px]">
-                          <span>{parcel.assignedLockerStreet}</span>
-                          <span>{parcel.assignedLockerCity}</span>
-                        </div>
-                      </div>
-                      <Avatar type="locker" size="md" status="active" />
-                    </div>
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      onClick={onLockerClick}
-                      className="w-full"
-                    >
-                      Show Locker Details
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Help panel */}
-            {rightPanelTab === 'help' && (
-              <div className="flex flex-col flex-1 min-h-[480px] lg:min-h-0 overflow-hidden">
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                  {helpMessages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
-                        msg.role === 'bot'
-                          ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
-                          : 'bg-surface-primary text-white self-end rounded-tr-sm'
-                      }`}
-                    >
-                      {msg.text}
-                    </div>
-                  ))}
-
-                  {/* Suggestion buttons */}
-                  {!suggestionsDismissed && (
-                    <div className="flex flex-col gap-2 mt-1">
-                      {[
-                        'Parcel is stuck — driver or consignee can\'t collect',
-                        'Pickup code not working',
-                        'Cancel this booking',
-                      ].map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => sendHelpMessage(s)}
-                          className="text-left text-sm text-text-foreground border border-border-default rounded-lg px-3.5 py-2.5 bg-surface-card hover:bg-surface-secondary transition-colors"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <div ref={helpEndRef} />
-                </div>
-
-                {/* Input */}
-                <div className="shrink-0 border-t border-border-default p-3 flex gap-2">
-                  <input
-                    type="text"
-                    value={helpInput}
-                    onChange={e => setHelpInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
-                    placeholder="Type your question…"
-                    className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
-                  />
-                  <button
-                    onClick={() => sendHelpMessage(helpInput)}
-                    disabled={!helpInput.trim()}
-                    aria-label="Send"
-                    className="flex items-center justify-center w-9 h-9 rounded-lg border border-border-default bg-surface-card hover:bg-surface-secondary disabled:opacity-40 transition-colors"
-                  >
-                    <Send size={15} className="text-text-foreground" />
-                  </button>
-                </div>
-
-              </div>
-            )}
-
+        {/* Context block */}
+        <div className="px-4 pt-4 shrink-0">
+          <div className="bg-surface-secondary border-l-2 border-surface-primary rounded-r-lg px-3 py-2.5 flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-text-foreground tracking-[-0.14px] leading-[22px] truncate">
+              {parcel.parcelId}
+            </span>
+            <span className="text-xs text-text-light tracking-[-0.12px] leading-5">
+              {parcel.assignedLockerName}
+            </span>
+            <ParcelStatusBadge
+              status={effectiveStatus}
+              since={lastTransition?.timestamp ?? parcel.lastActivity}
+            />
           </div>
         </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+          {helpMessages.map((msg, i) => (
+            <div
+              key={i}
+              className={`text-sm leading-[1.6] px-3.5 py-2.5 rounded-xl max-w-[92%] ${
+                msg.role === 'bot'
+                  ? 'bg-surface-secondary text-text-foreground self-start rounded-tl-sm'
+                  : 'bg-surface-primary text-white self-end rounded-tr-sm'
+              }`}
+            >
+              {msg.text}
+            </div>
+          ))}
+          <div ref={helpEndRef} />
+        </div>
+
+        {/* Input */}
+        <div className="shrink-0 border-t border-border-default p-3 flex gap-2">
+          <input
+            type="text"
+            value={helpInput}
+            onChange={e => setHelpInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
+            placeholder="Type your question…"
+            className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
+          />
+          <button
+            onClick={() => sendHelpMessage(helpInput)}
+            disabled={!helpInput.trim()}
+            aria-label="Send"
+            className="flex items-center justify-center w-9 h-9 rounded-lg border border-border-default bg-surface-card hover:bg-surface-secondary disabled:opacity-40 transition-colors"
+          >
+            <Send size={15} className="text-text-foreground" />
+          </button>
+        </div>
       </div>
+    )}
     </div>
   )
 }

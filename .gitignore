@@ -2,3 +2,5 @@ node_modules/
 dist/
 .context/
 storybook-static/
+.vercel
+.env*
