@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { Package, Users, MessageCircle, Send, X } from 'lucide-react'
+import { Package, Users, Send, X } from 'lucide-react'
+import HelpFab from './components/HelpFab'
 import {
   VerticalNav,
   NavBreadcrumb,
@@ -105,6 +106,14 @@ function App() {
   const [helpInput, setHelpInput] = useState('')
   const [helpSuggestionsDismissed, setHelpSuggestionsDismissed] = useState(false)
   const helpEndRef = useRef<HTMLDivElement>(null)
+  const helpTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const handleHelpInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setHelpInput(e.target.value)
+    const el = e.target
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }
 
   useEffect(() => {
     helpEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -115,6 +124,9 @@ function App() {
     setHelpSuggestionsDismissed(true)
     setHelpMessages(prev => [...prev, { role: 'user', text }])
     setHelpInput('')
+    if (helpTextareaRef.current) {
+      helpTextareaRef.current.style.height = 'auto'
+    }
     const replies: Record<string, string> = {
       'A parcel is stuck or a compartment won\'t open': 'I\'ll create a carrier issue ticket for this. Please share the parcel ID and locker ID so I can include them in the report.',
       'Cancel a booking': 'Sure. Share the parcel ID and I\'ll raise a cancellation request right away.',
@@ -514,7 +526,7 @@ function App() {
                 <div className="px-[18px] pt-[21px]">
                   <NavBreadcrumb items={[{ label: 'Locker Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
                 </div>
-                <div className="px-[18px] pt-[12px]">
+                <div className="px-[18px] pt-[12px] pb-24">
                   <PageHeader
                     title="Lockers"
                     subtitle={refreshSubtitle}
@@ -543,16 +555,7 @@ function App() {
                 </div>
                 {/* Help FAB — hidden when panel is open */}
                 {!helpOpen && (
-                  <div className="fixed bottom-6 right-6 z-40">
-                    <Button
-                      variant="primary"
-                      size="md"
-                      icon={<MessageCircle size={16} />}
-                      onClick={() => setHelpOpen(true)}
-                    >
-                      Help
-                    </Button>
-                  </div>
+                  <HelpFab onClick={() => setHelpOpen(true)} tooltip="Ask about your lockers" />
                 )}
               </main>
               {helpOpen && (
@@ -600,22 +603,28 @@ function App() {
                     <div ref={helpEndRef} />
                   </div>
                   {/* Input footer */}
-                  <div className="flex items-center gap-2 border-t border-border-default p-3 shrink-0">
-                    <input
-                      type="text"
-                      value={helpInput}
-                      onChange={e => setHelpInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
-                      placeholder="Type your question…"
-                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
-                    />
-                    <Button
-                      iconOnly
-                      aria-label="Send"
-                      icon={<Send size={15} className="text-text-foreground" />}
-                      onClick={() => sendHelpMessage(helpInput)}
-                      disabled={!helpInput.trim()}
-                    />
+                  {/* AI-style chat input */}
+                  <div className="shrink-0 p-3">
+                    <div className="relative rounded-2xl border border-border-default bg-surface-card">
+                      <textarea
+                        ref={helpTextareaRef}
+                        rows={3}
+                        value={helpInput}
+                        onChange={handleHelpInputChange}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendHelpMessage(helpInput) } }}
+                        placeholder="Type your question…"
+                        className="w-full resize-none bg-transparent border-0 focus:outline-none text-sm text-text-foreground placeholder:text-text-light px-4 pt-4 pb-14 leading-[1.6] rounded-2xl"
+                        style={{ minHeight: '80px', maxHeight: '160px' }}
+                      />
+                      <button
+                        onClick={() => sendHelpMessage(helpInput)}
+                        disabled={!helpInput.trim()}
+                        aria-label="Send"
+                        className="absolute bottom-3 right-3 flex items-center justify-center w-10 h-10 rounded-xl bg-surface-primary disabled:opacity-30 hover:opacity-90 transition-opacity"
+                      >
+                        <Send size={16} className="text-text-button" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -626,7 +635,7 @@ function App() {
         <Route
           path="/lockers/:lockerId"
           element={
-            <LockerDetailRoute carrierId={activeCarrierId} navCollapsed={navCollapsed} onNavToggle={onNavToggle} />
+            <LockerDetailRoute carrierId={activeCarrierId} navCollapsed={navCollapsed} onNavToggle={onNavToggle} initialHelpOpen={helpOpen} />
           }
         />
 
@@ -638,7 +647,7 @@ function App() {
                 <div className="px-[18px] pt-[21px]">
                   <NavBreadcrumb items={[{ label: 'Parcel Overview' }]} collapsed={navCollapsed} onToggle={onNavToggle} />
                 </div>
-                <div className="px-[18px] pt-[12px]">
+                <div className="px-[18px] pt-[12px] pb-24">
                   <PageHeader title="Parcels" subtitle={refreshSubtitle} />
                   <div className="mt-6">
                     <ParcelTable
@@ -652,16 +661,7 @@ function App() {
                 </div>
                 {/* Help FAB — hidden when panel is open */}
                 {!helpOpen && (
-                  <div className="fixed bottom-6 right-6 z-40">
-                    <Button
-                      variant="primary"
-                      size="md"
-                      icon={<MessageCircle size={16} />}
-                      onClick={() => setHelpOpen(true)}
-                    >
-                      Help
-                    </Button>
-                  </div>
+                  <HelpFab onClick={() => setHelpOpen(true)} tooltip="Ask about your parcels" />
                 )}
               </main>
               {helpOpen && (
@@ -709,22 +709,28 @@ function App() {
                     <div ref={helpEndRef} />
                   </div>
                   {/* Input footer */}
-                  <div className="flex items-center gap-2 border-t border-border-default p-3 shrink-0">
-                    <input
-                      type="text"
-                      value={helpInput}
-                      onChange={e => setHelpInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
-                      placeholder="Type your question…"
-                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
-                    />
-                    <Button
-                      iconOnly
-                      aria-label="Send"
-                      icon={<Send size={15} className="text-text-foreground" />}
-                      onClick={() => sendHelpMessage(helpInput)}
-                      disabled={!helpInput.trim()}
-                    />
+                  {/* AI-style chat input */}
+                  <div className="shrink-0 p-3">
+                    <div className="relative rounded-2xl border border-border-default bg-surface-card">
+                      <textarea
+                        ref={helpTextareaRef}
+                        rows={3}
+                        value={helpInput}
+                        onChange={handleHelpInputChange}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendHelpMessage(helpInput) } }}
+                        placeholder="Type your question…"
+                        className="w-full resize-none bg-transparent border-0 focus:outline-none text-sm text-text-foreground placeholder:text-text-light px-4 pt-4 pb-14 leading-[1.6] rounded-2xl"
+                        style={{ minHeight: '80px', maxHeight: '160px' }}
+                      />
+                      <button
+                        onClick={() => sendHelpMessage(helpInput)}
+                        disabled={!helpInput.trim()}
+                        aria-label="Send"
+                        className="absolute bottom-3 right-3 flex items-center justify-center w-10 h-10 rounded-xl bg-surface-primary disabled:opacity-30 hover:opacity-90 transition-opacity"
+                      >
+                        <Send size={16} className="text-text-button" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -735,7 +741,7 @@ function App() {
         <Route
           path="/parcels/:parcelId"
           element={
-            <ParcelDetailRoute carrierId={activeCarrierId} navCollapsed={navCollapsed} onNavToggle={onNavToggle} />
+            <ParcelDetailRoute carrierId={activeCarrierId} navCollapsed={navCollapsed} onNavToggle={onNavToggle} initialHelpOpen={helpOpen} />
           }
         />
 

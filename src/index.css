@@ -184,3 +184,16 @@ body {
   width: 100%;
   min-height: 100vh;
 }
+
+/* AI Help FAB gradient animation */
+@keyframes ai-gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ai-fab-ring {
+  background: linear-gradient(135deg, #7dd3f5, #2b8fd4, #003878, #2b8fd4, #7dd3f5);
+  background-size: 300% 300%;
+  animation: ai-gradient-shift 3s ease infinite;
+}

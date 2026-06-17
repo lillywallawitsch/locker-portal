@@ -42,6 +42,8 @@ import { formatAgeSince, formatAgeDuration, parseParcelTimestamp } from '../lib/
 import type { SortDirection } from '../lib/ooh-kit'
 import LastUpdatedButton from './LastUpdatedButton'
 import EditLockerInformationSidepanel from './EditLockerInformationSidepanel'
+import HelpFab from './HelpFab'
+import CompartmentBreakdownSidepanel from './CompartmentBreakdownSidepanel'
 import { useOrg } from '../context/OrgContext'
 import { depotTerm, showOwnedBy, showHost } from '../lib/carrierConfig'
 import type { OutgoingShareStatus } from '../data/sharedLockers'
@@ -53,6 +55,7 @@ interface LockerDetailProps {
   onParcelClick?: (parcel: ParcelOverviewItem) => void
   navCollapsed?: boolean
   onNavToggle?: () => void
+  initialHelpOpen?: boolean
 }
 
 const shareStatusLabel: Record<OutgoingShareStatus, string> = {
@@ -78,7 +81,7 @@ const compartmentSizeDimensions: Record<string, string> = {
   'Extra Large': '600 × 380 × 500 mm',
 }
 
-export default function LockerDetail({ locker, onBack, onParcelClick, navCollapsed, onNavToggle }: LockerDetailProps) {
+export default function LockerDetail({ locker, onBack, onParcelClick, navCollapsed, onNavToggle, initialHelpOpen = false }: LockerDetailProps) {
   const { outgoingShares, parcelData, carrier } = useOrg()
 
   const lockerShares = useMemo(
@@ -130,10 +133,11 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
 
   // Sidepanel state
   const [editSidepanelOpen, setEditSidepanelOpen] = useState(false)
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [openingHoursExpanded, setOpeningHoursExpanded] = useState(false)
 
   // Help panel state (always visible on detail pages)
-  const [helpOpen, setHelpOpen] = useState(true)
+  const [helpOpen, setHelpOpen] = useState(initialHelpOpen)
 
   // Help chat state
   type HelpMessage = { role: 'bot' | 'user'; text: string }
@@ -142,15 +146,26 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
   ])
   const [helpInput, setHelpInput] = useState('')
   const helpEndRef = useRef<HTMLDivElement>(null)
+  const helpTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     helpEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [helpMessages])
 
+  const handleHelpInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setHelpInput(e.target.value)
+    const el = e.target
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }
+
   const sendHelpMessage = (text: string) => {
     if (!text.trim()) return
     setHelpMessages(prev => [...prev, { role: 'user', text }])
     setHelpInput('')
+    if (helpTextareaRef.current) {
+      helpTextareaRef.current.style.height = 'auto'
+    }
     const reply = "Thanks — I'll help you with that. Can you describe the issue in more detail?"
     setTimeout(() => {
       setHelpMessages(prev => [...prev, { role: 'bot', text: reply }])
@@ -279,12 +294,19 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
   return (
     <div className="flex flex-1 overflow-hidden h-full">
     {/* Left: scrollable main content */}
-    <div className="flex-1 overflow-y-auto min-w-0">
+    <div className="flex-1 overflow-y-auto min-w-0 pb-24">
       <EditLockerInformationSidepanel
         open={editSidepanelOpen}
         onClose={() => setEditSidepanelOpen(false)}
         locker={locker}
         onDeactivate={effectiveStatus === 'active' ? () => setDeactivateDialogOpen(true) : undefined}
+      />
+      <CompartmentBreakdownSidepanel
+        open={breakdownOpen}
+        onClose={() => setBreakdownOpen(false)}
+        lockerId={locker.id}
+        lockerName={locker.name}
+        compartments={compartments}
       />
 
       {/* Deactivate Confirmation Dialog */}
@@ -389,16 +411,6 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
             >
               {isPreActivation ? 'Edit Locker' : 'Edit Locker Information'}
             </Button>
-            {!helpOpen && (
-              <Button
-                variant="secondary"
-                size="md"
-                icon={<HelpCircle size={16} />}
-                onClick={() => setHelpOpen(true)}
-              >
-                Help
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -423,7 +435,7 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
                     </span>
                   </div>
                 </div>
-                <Button variant="secondary" size="md" icon={<PieChart size={16} />}>
+                <Button variant="secondary" size="md" icon={<PieChart size={16} />} onClick={() => setBreakdownOpen(true)}>
                   Detailed Breakdown
                 </Button>
               </div>
@@ -789,7 +801,7 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
     </div>
 
     {/* Right: sidebar (detail cards) or Help panel */}
-    <div className="w-[301px] shrink-0 border-l border-border-default flex flex-col overflow-hidden">
+    <div className="w-[320px] shrink-0 border-l border-border-default flex flex-col overflow-hidden">
       {helpOpen ? (
         /* Help panel */
         <>
@@ -822,24 +834,28 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
             ))}
             <div ref={helpEndRef} />
           </div>
-          {/* Input */}
-          <div className="shrink-0 border-t border-border-default p-3 flex gap-2">
-            <input
-              type="text"
-              value={helpInput}
-              onChange={e => setHelpInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') sendHelpMessage(helpInput) }}
-              placeholder="Type your question…"
-              className="flex-1 text-sm px-3 py-2 rounded-lg border border-border-default bg-surface-card text-text-foreground placeholder:text-text-light focus:outline-none focus:border-border-active"
-            />
-            <button
-              onClick={() => sendHelpMessage(helpInput)}
-              disabled={!helpInput.trim()}
-              aria-label="Send"
-              className="flex items-center justify-center w-9 h-9 rounded-lg border border-border-default bg-surface-card hover:bg-surface-secondary disabled:opacity-40 transition-colors"
-            >
-              <Send size={15} className="text-text-foreground" />
-            </button>
+          {/* AI-style chat input */}
+          <div className="shrink-0 p-3">
+            <div className="relative rounded-2xl border border-border-default bg-surface-card">
+              <textarea
+                ref={helpTextareaRef}
+                rows={3}
+                value={helpInput}
+                onChange={handleHelpInputChange}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendHelpMessage(helpInput) } }}
+                placeholder="Type your question…"
+                className="w-full resize-none bg-transparent border-0 focus:outline-none text-sm text-text-foreground placeholder:text-text-light px-4 pt-4 pb-14 leading-[1.6] rounded-2xl"
+                style={{ minHeight: '80px', maxHeight: '160px' }}
+              />
+              <button
+                onClick={() => sendHelpMessage(helpInput)}
+                disabled={!helpInput.trim()}
+                aria-label="Send"
+                className="absolute bottom-3 right-3 flex items-center justify-center w-10 h-10 rounded-xl bg-surface-primary disabled:opacity-30 hover:opacity-90 transition-opacity"
+              >
+                <Send size={16} className="text-text-button" />
+              </button>
+            </div>
           </div>
         </>
       ) : (
@@ -983,6 +999,10 @@ export default function LockerDetail({ locker, onBack, onParcelClick, navCollaps
         </div>
       )}
     </div>
+    {/* Help FAB — hidden when help panel is open */}
+    {!helpOpen && (
+      <HelpFab onClick={() => setHelpOpen(true)} tooltip={`Ask about ${locker.name}`} />
+    )}
     </div>
   )
 }

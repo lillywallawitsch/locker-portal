@@ -7,6 +7,7 @@ interface ParcelDetailRouteProps {
   carrierId: string
   navCollapsed: boolean
   onNavToggle: () => void
+  initialHelpOpen?: boolean
 }
 
 interface ParcelNavState {
@@ -23,7 +24,7 @@ interface ParcelNavState {
  * `location.state`, so a cold-loaded shared link degrades to the overview
  * breadcrumb. A missing id redirects to the parcel overview.
  */
-export default function ParcelDetailRoute({ carrierId, navCollapsed, onNavToggle }: ParcelDetailRouteProps) {
+export default function ParcelDetailRoute({ carrierId, navCollapsed, onNavToggle, initialHelpOpen }: ParcelDetailRouteProps) {
   const { parcelData } = useOrg()
   const { parcelId } = useParams()
   const navigate = useNavigate()
@@ -51,6 +52,7 @@ export default function ParcelDetailRoute({ carrierId, navCollapsed, onNavToggle
       }
       navCollapsed={navCollapsed}
       onNavToggle={onNavToggle}
+      initialHelpOpen={initialHelpOpen}
     />
   )
 }

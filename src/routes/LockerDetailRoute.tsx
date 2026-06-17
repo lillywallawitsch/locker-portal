@@ -7,6 +7,7 @@ interface LockerDetailRouteProps {
   carrierId: string
   navCollapsed: boolean
   onNavToggle: () => void
+  initialHelpOpen?: boolean
 }
 
 /**
@@ -14,7 +15,7 @@ interface LockerDetailRouteProps {
  * (deleted locker or a link shared across carriers) redirects back to the list.
  * `location.state.listSearch` carries the filtered list query so "back" restores it.
  */
-export default function LockerDetailRoute({ carrierId, navCollapsed, onNavToggle }: LockerDetailRouteProps) {
+export default function LockerDetailRoute({ carrierId, navCollapsed, onNavToggle, initialHelpOpen }: LockerDetailRouteProps) {
   const { lockerData } = useOrg()
   const { lockerId } = useParams()
   const navigate = useNavigate()
@@ -40,6 +41,7 @@ export default function LockerDetailRoute({ carrierId, navCollapsed, onNavToggle
       }
       navCollapsed={navCollapsed}
       onNavToggle={onNavToggle}
+      initialHelpOpen={initialHelpOpen}
     />
   )
 }
